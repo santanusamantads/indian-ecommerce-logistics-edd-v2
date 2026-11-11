@@ -1,6 +1,8 @@
 ## 📦 Indian E-Commerce Logistics: EDD & SLA Breach Prediction (Version 2)
 
-A leak-free, end-to-end Machine Learning and Optimization study on **210,850 Indian e-commerce shipment records**. This project implements core regression, regularization, and binary classification algorithms **from scratch in NumPy** alongside Scikit-Learn industry benchmarks.
+**M.Sc. Data Science & Artificial Intelligence Project**  
+*Ramakrishna Mission Vivekananda Educational and Research Institute (RKMVERI)*  
+*Author:* Santanu Samanta  
 
 ---
 
