@@ -27,20 +27,53 @@ Modern Indian e-commerce logistics spans diverse transit corridors—from intra-
 
 ---
 
-## 🛠️ Data Engineering & Leakage Prevention
+### 🛡️ Preprocessing Pipeline & Data Leakage Prevention
 
-To ensure unbiased out-of-sample generalization on the **42,170 held-out test rows** (`80/20` split):
-* **Target Leakage Prevention:** Post-delivery variables (`Rating_Stars`, `Actual_Delivery_Days`) and non-predictive identifiers (`Order_ID`, `Origin_Pincode`, `Destination_Pincode`, `Review_Text`) were strictly excluded from the feature matrix.
-* **Missing Value Handling:** `Festival_Peak` nulls (`147,569` rows) were imputed as `"Normal_Period"`. Exploratory conditional median imputation on `Rating_Stars` was kept isolated from model training.
-* **Encoding & Scaling:** Six categorical features were one-hot encoded (`drop_first=True`), yielding **41 predictive features**. Z-score standardization (\(\mu, \sigma\)) was fitted **strictly on the training set** (`168,680` rows) before transforming test data.
+To ensure unbiased out-of-sample generalization on the holdout test partition ($m_{\text{test}} = 42{,}170$ rows, $80/20$ sequential split):
+
+* **Target Leakage & Identifier Exclusion**  
+  Post-delivery realization variables ($\text{Rating\_Stars}$, $\text{Actual\_Delivery\_Days}$) and high-cardinality/non-predictive identifiers ($\text{Order\_ID}$, $\text{Origin\_Pincode}$, $\text{Destination\_Pincode}$, $\text{Review\_Text}$) were strictly purged prior to constructing the design matrix $\mathbf{X}$.
+
+---
+
+* **Missing Value Imputation Protocol**  
+  Structural missingness in seasonal attributes ($\text{Festival\_Peak}$, $147{,}569$ null records) was categorically encoded as `"Normal_Period"`. Exploratory conditional median imputation conducted on user feedback metrics was strictly isolated from downstream training manifolds to prevent distribution bleed.
+
+---
+
+* **Categorical Expansion & Strict In-Sample Feature Scaling**  
+  Categorical streams were one-hot encoded with reference category elimination (`drop_first=True`) to avoid the dummy variable trap and matrix singularity, expanding the feature space to $d = 41$ predictive dimensions:
+  $$\mathbf{X} \in \mathbb{R}^{m \times 41}$$
+  Continuous feature vectors were standardized via explicit Z-score transformations parameterized **strictly on the training partition** ($m_{\text{train}} = 168{,}680$ instances) to prevent data snooping:
+  $$\mu_j = \frac{1}{m_{\text{train}}} \sum_{i=1}^{m_{\text{train}}} x_{i,j}, \qquad \sigma_j = \sqrt{\frac{1}{m_{\text{train}}} \sum_{i=1}^{m_{\text{train}}} (x_{i,j} - \mu_j)^2}$$
+  $$x_{i,j}^{(\text{scaled})} = \frac{x_{i,j} - \mu_j}{\sigma_j}$$
+  The precomputed training statistics $(\boldsymbol{\mu}_{\text{train}}, \boldsymbol{\sigma}_{\text{train}})$ were then deterministically mapped across the test slice $\mathbf{X}_{\text{test}}$.
 
 ---
 
 ## 🧮 Algorithms Implemented from Scratch
 
-* **Batch Gradient Descent with Armijo Backtracking Line Search:** Dynamically contracts step size (\(\beta = 0.5\), \(c = 0.005\)) at every epoch to guarantee monotonic MSE reduction without overshooting.
-* **Proximal Gradient Descent Lasso (\(L_1\) Regularization):** Uses Iterative Soft-Thresholding (ISTA) with backtracking line search to induce exact feature sparsity, tuned via an internal validation split (`33,736` rows) across \(\alpha \in [10^{-5}, 10^{1}]\).
-* **Batch Logistic Regression:** Optimizes numerically clipped Sigmoid (\(z \in [-500, 500]\)) and Binary Cross-Entropy Log-Loss (\(\hat{p} \in [10^{-15}, 1 - 10^{-15}]\)), paired with a custom confusion matrix and threshold tuning (\(\tau = 0.30\)) for imbalanced classification.
+* **Batch Gradient Descent with Armijo Backtracking Line Search**  
+  Dynamically contracts the step size $\eta$ using parameters $\beta = 0.5$ and $c = 0.005$ to guarantee monotonic Mean Squared Error reduction without overshooting:
+  $$f(\mathbf{w} - \eta \nabla f(\mathbf{w})) \le f(\mathbf{w}) - c \, \eta \, \|\nabla f(\mathbf{w})\|_2^2$$
+  where the learning rate updates iteratively via $\eta \leftarrow \beta \eta$ until the Armijo condition is satisfied.
+
+---
+
+* **Proximal Gradient Descent Lasso ($L_1$ Regularization)**  
+  Applies Iterative Soft-Thresholding Algorithm (ISTA) combined with line search to induce exact parameter sparsity over the objective:
+  $$\min_{\mathbf{w}} \frac{1}{2m} \|\mathbf{X}\mathbf{w} - \mathbf{y}\|_2^2 + \alpha \|\mathbf{w}\|_1$$
+  Parameter coordinates are updated through the soft-thresholding operator:
+  $$\mathcal{S}_{\eta \alpha}(v_j) = \operatorname{sign}(v_j) \cdot \max\left(0,\, |v_j| - \eta \alpha\right)$$
+  Tuned across an internal validation holdout (33,736 instances) spanning $\alpha \in [10^{-5}, 10^{1}]$.
+
+---
+
+* **Batch Logistic Regression (SLA Delay Classification)**  
+  Trained on imbalanced outcomes using numerically stable, boundary-clipped Sigmoid and Binary Cross-Entropy Log-Loss:
+  $$\sigma(z) = \frac{1}{1 + e^{-z}}, \quad z = \operatorname{clip}(\mathbf{w}^T \mathbf{x} + b, -500, 500)$$
+  $$\mathcal{L}_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^{m} \Big[ y^{(i)} \log(\hat{p}^{(i)}) + (1 - y^{(i)}) \log(1 - \hat{p}^{(i)}) \Big]$$
+  Probabilities are clipped to $\hat{p} \in [10^{-15}, 1 - 10^{-15}]$ to prevent numerical divergence, evaluated with an operational decision boundary threshold of $\tau = 0.30$.
 
 ---
 
