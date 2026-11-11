@@ -15,7 +15,7 @@ Modern Indian e-commerce logistics spans diverse transit corridors—from intra-
 
 ## 📂 Dataset Summary
 
-* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (Version 2)]([https://kaggle.com](https://www.kaggle.com/datasets/shyamsantanu01122004/indian-multi-agency-e-commerce-logistics-and-edd)) (Created by Santanu Samanta)
+* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (Version 2)]((https://www.kaggle.com/datasets/shyamsantanu01122004/indian-multi-agency-e-commerce-logistics-and-edd)) (Created by Santanu Samanta)
 * **Scale:** `210,850` shipment rows × `21` attributes
 * **Logistics Carriers:** Blue Dart, Delhivery, Ekart, XpressBees, Ecom Express, Shadowfax
 * **Spatial Routing:** Zones A to E across pan-India 6-digit pincodes
