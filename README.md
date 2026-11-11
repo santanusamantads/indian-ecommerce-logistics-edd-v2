@@ -1,4 +1,4 @@
-# Indian E-Commerce Logistics: EDD & SLA Breach Prediction (Version 2)
+## 📦 Indian E-Commerce Logistics: EDD & SLA Breach Prediction (Version 2)
 
 A leak-free, end-to-end Machine Learning and Optimization study on **210,850 Indian e-commerce shipment records**. This project implements core regression, regularization, and binary classification algorithms **from scratch in NumPy** alongside Scikit-Learn industry benchmarks.
 
@@ -13,7 +13,8 @@ Modern Indian e-commerce logistics spans diverse transit corridors—from intra-
 
 ---
 
-## 📦 Dataset Summary
+
+## 📊 Dataset Summary
 
 * **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (Version 2)](https://www.kaggle.com/datasets/shyamsantanu01122004/indian-multi-agency-e-commerce-logistics-and-edd?select=india_multi_agency_edd_dataset_v2.csv) (Created by Santanu Samanta)
 * **Scale:** `210,850` shipment rows × `21` attributes
