@@ -38,7 +38,7 @@ $$
 **Proximal Gradient Descent (Lasso L₁):** Applies element-wise soft-thresholding over `1,500` epochs. The soft-thresholding operator is:
 
 $$
-\mathcal{S}_{\eta \alpha}(v_j) = \operatorname{sign}(v_j)\max(0, |v_j| - \eta\alpha)
+\mathcal{S}_{\eta \alpha}(v_j) = \mathrm{sign}(v_j)\max(0, |v_j| - \eta\alpha)
 $$
 
 An 80/20 inner validation sweep across $$\alpha \in [10^{-5}, 10^{1}]$$ selected α = 0.031623 (`Validation RMSE = 8.7486` hours).
