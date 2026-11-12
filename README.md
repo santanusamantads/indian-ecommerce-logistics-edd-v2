@@ -1,110 +1,117 @@
-# 🚚 Indian E-Commerce Logistics & Estimated Delivery Date (EDD) Prediction (v2)
+# 🚚 Indian Multi-Agency E-Commerce Logistics: EDD & SLA Prediction
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://shields.io)](https://python.org)
+[![License: MIT](https://shields.io)](LICENSE)
 
-## 📌 Overview
+## 📌 Project Overview & Two Core Motives
 
-This repository contains an end-to-end Machine Learning pipeline designed to predict Estimated Delivery Dates (EDD) and analyze shipment delay risks across pan-India e-commerce logistics networks. Built upon real-world multi-carrier logistics telemetry (`210,850` shipments across `6` major logistics providers), the project models complex supply chain dynamics, regional routing bottlenecks, and seasonal festive demand surges.
+This repository implements an end-to-end Machine Learning pipeline from scratch on **210,850** pan-India multi-carrier shipments to solve two core operational logistics objectives:
 
-### 🎯 Key Objectives & Core Features
-* **Robust Regression:** Custom implementation of Proximal Gradient Descent for Regularized Linear Models (Lasso $L_1$, Ridge $L_2$, and ElasticNet).
-* **Classification & Risk Modeling:** Logistic Regression classifier with custom decision thresholds ($\tau = 0.30$) to flag high-probability logistics delays.
-* **Data Leakage Mitigation:** Strict split-before-scaling protocols preventing distribution bleed across temporal folds.
-* **Multi-Carrier Telemetry:** Comparative benchmark across Blue Dart, Delhivery, Ekart, XpressBees, Ecom Express, and Shadowfax.
+1. **EDD (Estimated Delivery Date) Prediction — Continuous Regression:** Predict actual shipment transit duration (`Transit_Time_Hours`) using Batch Gradient Descent with Armijo Backtracking Line Search and Proximal Gradient Descent for Lasso (L₁).
+2. **SLA (Service Level Agreement) Violation Prediction — Binary Classification:** Predict operational SLA delay risk (`Is_Delayed_SLA`) using Binary Logistic Regression from scratch across matched probability thresholds (τ = 0.30 and τ = 0.50) under severe class imbalance (`3.49%` overall delay rate / `3.44%` in the holdout test split).
 
 ---
 
-## 📊 Dataset Summary
+## 📊 Dataset & Leakage-Free Preprocessing
 
-* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (Version 2)](https://www.kaggle.com/datasets/shyamsantanu01122004/indian-multi-agency-e-commerce-logistics-and-edd?select=india_multi_agency_edd_dataset_v2.csv) (Created by Santanu Samanta)
-* **Scale:** `210,850` shipment rows $\times$ `21` attributes
-* **Logistics Carriers:** Blue Dart, Delhivery, Ekart, XpressBees, Ecom Express, Shadowfax
-* **Spatial Routing:** Zones A to E across pan-India 6-digit pincodes
-* **Transport Modes:** `Surface` and `Air`
-* **Festive Surges:** Diwali Peak, Durga Puja / Dussehra, Eid-ul-Fitr, Holi, Independence Day Sale, New Year Carnival, and Normal Period
-
----
-
-### 🌐 Preprocessing Pipeline & Data Leakage Prevention
-
-To ensure unbiased out-of-sample generalization on the holdout test partition ($m_{\text{test}} = 42{,}170$ rows, 80/20 sequential split):
-
-* **Data Purging:** Non-causal post-delivery realization variables (`Rating_Stars`, `Actual_Delivery_Days`) and high-cardinality/non-predictive identifiers (`Order_ID`, `Origin_Pincode`, `Destination_Pincode`, `Review_Text`) were strictly purged prior to constructing the design matrix $\mathbf{X}$.
+* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (v2)](https://kaggle.com) (`210,850` rows × `21` attributes)
+* **Logistics Providers:** Blue Dart, Delhivery, Ekart, XpressBees, Ecom Express, and Shadowfax
+* **Routing & Modes:** Logistics Zones A–E across pan-India cities (`Surface` and `Air` shipment modes)
+* **Data Partitioning:** Sequential 80/20 holdout split (`168,680` training rows / `42,170` holdout test rows)
+* **Preprocessing & Multicollinearity Controls:**
+  * **Post-Delivery & ID Purging:** Dropped non-causal outcome columns (`Actual_Delivery_Days`, `Rating_Stars`) and non-predictive identifiers (`Order_ID`, `Origin_Pincode`, `Destination_Pincode`, `Review_Text`).
+  * **Exact Multicollinearity Removal:** Dropped `Total_Shipping_Cost` because `Total_Shipping_Cost = Freight_Cost + Insurance_Fee` exactly (`2069.28 + 103.46 = 2172.75`), ensuring a full-rank feature matrix.
+  * **Missing Value Imputation:** Encoded `147,569` null records in `Festival_Peak` as `"Normal_Period"`. Exploratory conditional median imputation on `Rating_Stars` (`6,345` nulls) was isolated from downstream feature matrices.
+  * **One-Hot Encoding & In-Sample Scaling:** Applied dummy encoding (`drop_first=True`) to expand categorical variables into \(\mathbf{X} \in \mathbb{R}^{m \times 40}\). Continuous features (`Distance_km`, `Weight_kg`, `Warehouse_Handling_Fee`, `Fuel_Surcharge`, `Freight_Cost`, `Insurance_Fee`) were standardized using mean and standard deviation computed strictly on the training set before transforming \(\mathbf{X}_{\text{test}}\).
 
 ---
 
-* **Missing Value Imputation Protocol**
-  Structural missingness in seasonal attributes (`Festival_Peak`, $147{,}569$ null records) was categorically encoded as `"Normal_Period"`. Exploratory conditional median imputation conducted on user feedback metrics was strictly isolated from downstream training manifolds to prevent distribution bleed.
+## 🎯 Motive 1: EDD Prediction (Regression)
 
----
+### Optimization Formulation
+* **Armijo Backtracking Line Search:** Dynamically contracts step size η (β = 0.5, c = 0.005) over `3,500` epochs to guarantee monotonic Mean Squared Error reduction:
+  \[f(\mathbf{w} - \eta \nabla f(\mathbf{w})) \le f(\mathbf{w}) - c \, \eta \, \Vert{}\nabla f(\mathbf{w})\Vert{}_2^2\]
+* **Proximal Gradient Descent (Lasso L₁):** Applies element-wise soft-thresholding \(\mathcal{S}_{\eta \alpha}(v_j) = \operatorname{sign}(v_j)\max(0, \vert{}v_j\vert{} - \eta\alpha)\) over `1,500` epochs. An 80/20 inner validation sweep across \(\alpha \in [10^{-5}, 10^{1}]\) selected α = 0.031623 (`Validation RMSE = 8.7486` hours).
 
-* **Categorical Expansion & Strict In-Sample Feature Scaling**
-  Categorical streams were one-hot encoded with reference category elimination (`drop_first=True`) to avoid the dummy variable trap and matrix singularity, expanding the feature space to $d = 41$ predictive dimensions:
+### EDD Benchmark Results (`Transit_Time_Hours`)
 
-$$\mathbf{X} \in \mathbb{R}^{m \times 41}$$
-
-  Continuous features were standard-scaled using parameters derived exclusively from the training set:
-
-$$\mu_j = \frac{1}{m_{\text{train}}} \sum_{i=1}^{m_{\text{train}}} x_{i,j}, \qquad \sigma_j = \sqrt{\frac{1}{m_{\text{train}}} \sum_{i=1}^{m_{\text{train}}} (x_{i,j} - \mu_j)^2}$$
-
-$$x_{i,j}^{(\text{scaled})} = \frac{x_{i,j} - \mu_j}{\sigma_j}$$
-
-  The precomputed training statistics $(\boldsymbol{\mu}_{\text{train}}, \boldsymbol{\sigma}_{\text{train}})$ were then deterministically mapped across the test slice $\mathbf{X}_{\text{test}}$.
-
----
-
-## 📐 Mathematical Formulations & Algorithms
-
-### 1. Backtracking Line Search (Armijo Condition)
-
-Dynamically contracts the step size $\eta$ using parameters $\beta = 0.5$ and $c = 0.005$ to guarantee monotonic Mean Squared Error reduction without overshooting:
-
-$$f(\mathbf{w} - \eta \nabla f(\mathbf{w})) \le f(\mathbf{w}) - c \, \eta \, \|\nabla f(\mathbf{w})\|_2^2$$
-
-If violated, update: $\eta \leftarrow \beta \eta$.
-
-### 2. Proximal Gradient Descent for Lasso ($L_1$ Regularization)
-
-To handle the non-differentiable $L_1$ penalty in:
-
-$$\min_{\mathbf{w}} \frac{1}{2m} \|\mathbf{X}\mathbf{w} - \mathbf{y}\|_2^2 + \alpha \|\mathbf{w}\|_1$$
-
-We apply the Soft-Thresholding operator element-wise to each parameter $v_j$:
-
-$$\mathcal{S}_{\eta \alpha}(v_j) = \operatorname{sign}(v_j) \cdot \max\left(0, |v_j| - \eta \alpha\right)$$
-
-Hyperparameter grid search spanned $\alpha \in [10^{-5}, 10^{1}]$.
-
-### 3. Binary Logistic Regression for Delay Risk Classification
-
-Logistics delay risk ($y_i \in \{0, 1\}$) was modeled using the Sigmoid activation:
-
-$$\sigma(z) = \frac{1}{1 + e^{-z}}, \quad z = \operatorname{clip}(\mathbf{w}^T \mathbf{x} + b, -500, 500)$$
-
-Optimized via Binary Cross-Entropy (BCE) Loss:
-
-$$\mathcal{L}_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^{m} \Big[ y^{(i)} \log(\hat{p}^{(i)}) + (1 - y^{(i)}) \log(1 - \hat{p}^{(i)}) \Big]$$
-
----
-
-## 📈 Benchmark Results & Performance
-
-### 📌 Regression Performance (EDD Prediction in Hours)
-| Model Architecture | Test RMSE (Hours) | Test $R^2$ Score | Notes |
+| Model Architecture | Test RMSE (Hours) | Test R² Score | Notes |
 | :--- | :---: | :---: | :--- |
-| **Custom Proximal Lasso (Scratch)** | **8.7003** | **0.9280** | $\alpha = 0.0316$ (selected via validation), prunes **30/41** features to zero |
-| **Scikit-Learn Lasso ($L_1$)** | 8.7012 | 0.9280 | $\alpha = 0.001$ |
-| **Ridge Regression ($L_2$)** | 8.7014 | 0.9280 | $\alpha = 0.01$ |
-| **ElasticNet ($L_1 + L_2$)** | 8.7345 | 0.9274 | $\alpha = 0.01$, $l_1\text{ ratio} = 0.5$ |
+| **Custom Proximal Lasso (Scratch)** | **8.7004** | **0.9280** | α = 0.031623, prunes **30/40** redundant features to zero |
+| **Scikit-Learn Lasso (L₁)** | 8.7012 | 0.9280 | α = 0.001 |
+| **Custom GD (Scratch)** | 8.7013 | 0.9280 | `epochs=3500`, Armijo backtracking line search |
+| **Bagging Regressor (Linear)** | 8.7013 | 0.9280 | `n_estimators=50` |
+| **Ridge Regression (L₂)** | 8.7014 | 0.9280 | α = 0.01 |
+| **ElasticNet (L₁ + L₂)** | 8.7378 | 0.9274 | α = 0.01, l₁ ratio = 0.5 |
+| **Random Forest Regressor** | 8.7625 | 0.9270 | `n_estimators=50`, `max_depth=12` |
 
-### 📌 Classification Performance (Delay Flag)
-| Model / Metric | Precision | Recall | F1-Score | ROC-AUC |
-| :--- | :---: | :---: | :---: | :---: |
-| **Custom Logistic Regression (Scratch, $\tau = 0.30$)** | **0.7812** | **0.8645** | **0.8207** | **0.9140** |
+* **Selected EDD Model:** **Custom Proximal Lasso (L₁)** achieves the lowest holdout error (**`8.7004` hours RMSE**) while eliminating **75%** (`30/40`) of sparse dummy features for fast, lightweight deployment.
 
-* **Confusion Matrix (Custom Logistic, $\tau = 0.30$):**
-  * **True Positives (TP):** 11,240
-  * **False Positives (FP):** 3,148
-  * **True Negatives (TN):** 24,910
-  * **False Negatives (FN):** 2,872
+---
+
+## 🚨 Motive 2: SLA Violation Prediction (Classification)
+
+### Optimization Formulation
+* **Binary Logistic Regression:** Models SLA delay probability \(\hat{p} = \sigma(\mathbf{w}^T\mathbf{x} + b)\) via Batch Gradient Descent (`learning_rate = 0.1`, `epochs = 1000`) minimizing Binary Cross-Entropy loss:
+  \[\mathcal{L}_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^{m} \Big[ y^{(i)} \log(\hat{p}^{(i)}) + (1 - y^{(i)}) \log(1 - \hat{p}^{(i)}) \Big]\]
+
+### SLA Benchmark Results (`Is_Delayed_SLA` — Matched Operating Thresholds)
+Because only **3.44%** (`1,451 / 42,170`) of holdout shipments violate SLA, a majority-class dummy classifier achieves **96.56%** accuracy with `0.0000` recall. All unweighted models are therefore evaluated primarily on **Precision**, **Recall**, and **F1-Score** for Class 1 (`Is_Delayed_SLA = 1`) across identical thresholds:
+
+| Model Architecture | Threshold (τ) | Precision (C1) | Recall (C1) | F1-Score (C1) | Accuracy |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Bagging Classifier (Logistic)** | `0.30` | 0.5561 | **0.6871** | **0.6147** | 97.04% |
+| **Random Forest Classifier** | `0.30` | 0.5527 | **0.6871** | 0.6126 | 97.01% |
+| **Custom Logistic Regression (Scratch)** | `0.30` | **0.6517** | 0.5107 | 0.5726 | **97.38%** |
+| **Bagging Classifier (Logistic)** | `0.50` | 0.6632 | 0.4900 | 0.5636 | 97.39% |
+| **Random Forest Classifier** | `0.50` | 0.6667 | 0.4645 | 0.5475 | 97.36% |
+| **Custom Logistic Regression (Scratch)** | `0.50` | 0.7426 | 0.2764 | 0.4028 | 97.18% |
+
+* **Selected SLA Model:** **Custom Logistic Regression (τ = 0.30)** delivers the highest precision (**`0.6517`**) and overall accuracy (**`97.38%`**) at the τ = 0.30 operating point, boosting minority delay recall from `27.64%` (at τ = 0.50) to **`51.07%`** while minimizing false delay alerts.
+* **Holdout Confusion Matrix (Custom Logistic Regression, τ = 0.30, \(m_{\text{test}} = 42{,}170\)):**
+  * **True Positives (TP):** `741` | **False Positives (FP):** `396`
+  * **True Negatives (TN):** `40,323` | **False Negatives (FN):** `710`
+
+---
+
+## ⚙️ Learned Parameters of Chosen Models
+
+* **EDD Custom Proximal Lasso Intercept (\(b_{\text{EDD}}\)):** `85.136029` (10 non-zero weights out of 40 features)
+  * `Distance_km`: `+39.003655` | `Festival_Peak_Normal_Period`: `-39.022109`
+  * `Freight_Cost`: `-10.599448` | `Insurance_Fee`: `-10.599162`
+  * `Fuel_Surcharge`: `+1.253778` | `Shipment_Mode_Surface`: `+0.283790`
+  * `Warehouse_Handling_Fee`: `+0.144645` | `Logistics_Zone_Zone B`: `+0.037001`
+  * `Weight_kg`: `+0.026705` | `Logistics_Zone_Zone C`: `-0.008649`
+* **SLA Custom Logistic Intercept (\(b_{\text{SLA}}\)):** `-1.537808` (top magnitude drivers: `Festival_Peak_Normal_Period = -2.223302`, `Shipment_Mode_Surface = -1.357282`, `Freight_Cost = +0.378138`, `Insurance_Fee = +0.378136`, `Distance_km = +0.283658`)
+
+---
+
+## 🔍 Unseen Holdout Data Audit (50-Shipment Verification)
+
+Both chosen models were audited on **50 unseen holdout shipments** (`np.random.seed(42)` from the test split) against actual delivery logs:
+
+* **Sample Mean Absolute Error (EDD):** **`6.29` hours** (`~0.26` days)
+* **Sample SLA Classification Match (τ = 0.30):** **`98.0%`** (`49/50` exact matches, catching `5/6` actual SLA violations with `0` false positives)
+
+| Order ID | Partner | Mode | Actual Hours | Pred Hours | Error (Hrs) | Actual SLA | SLA Prob | Pred SLA |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `IND202600171970` | Ekart | Surface | 56.96 | 59.17 | +2.21 | `0` | 0.0075 | `0` |
+| `IND202600168687` | Blue Dart | Air | 106.13 | 85.12 | -21.01 | `1` | 0.6640 | `1` |
+| `IND202600184075` | Delhivery | Surface | 136.66 | 132.62 | -4.04 | `0` | 0.0815 | `0` |
+| `IND202600196807` | Ekart | Air | 20.29 | 19.76 | -0.53 | `0` | 0.0086 | `0` |
+| `IND202600198447` | Ekart | Air | 92.85 | 82.94 | -9.91 | `1` | 0.5715 | `1` |
+| `IND202600194376` | Delhivery | Surface | 94.06 | 92.99 | -1.07 | `0` | 0.0219 | `0` |
+| `IND202600183947` | Blue Dart | Air | 31.06 | 32.04 | +0.98 | `0` | 0.0416 | `0` |
+| `IND202600172963` | XpressBees | Air | 95.79 | 83.99 | -11.80 | `1` | 0.6220 | `1` |
+| `IND202600177632` | Blue Dart | Air | 72.74 | 69.60 | -3.14 | `1` | 0.3249 | `1` |
+| `IND202600172308` | Ecom Express | Air | 88.74 | 76.45 | -12.29 | `1` | 0.3947 | `1` |
+
+---
+
+## 🚀 Repository Structure
+
+```text
+├── india_multi_agency_edd_dataset_v2.csv   # Source logistics dataset (210,850 rows)
+├── indian-ecommerce-logistics-edd-v2.ipynb # Complete Jupyter Notebook (EDA, Scratch Models, Benchmarks & Audit)
+└── README.md                               # Project documentation & benchmark report
+```
