@@ -1,7 +1,9 @@
+
 # 🚚 Indian Multi-Agency E-Commerce Logistics: EDD & SLA Prediction
 
-[![Python 3.10+](https://shields.io)](https://python.org)
-[![License: MIT](https://shields.io)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 
 ## 📌 Project Overview & Two Core Motives
 
