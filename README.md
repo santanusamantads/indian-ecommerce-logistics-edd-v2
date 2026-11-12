@@ -22,16 +22,30 @@ This repository implements an end-to-end Machine Learning pipeline from scratch 
   * **Post-Delivery & ID Purging:** Dropped non-causal outcome columns (`Actual_Delivery_Days`, `Rating_Stars`) and non-predictive identifiers (`Order_ID`, `Origin_Pincode`, `Destination_Pincode`, `Review_Text`).
   * **Exact Multicollinearity Removal:** Dropped `Total_Shipping_Cost` because `Total_Shipping_Cost = Freight_Cost + Insurance_Fee` exactly (`2069.28 + 103.46 = 2172.75`), ensuring a full-rank feature matrix.
   * **Missing Value Imputation:** Encoded `147,569` null records in `Festival_Peak` as `"Normal_Period"`. Exploratory conditional median imputation on `Rating_Stars` (`6,345` nulls) was isolated from downstream feature matrices.
-  * **One-Hot Encoding & In-Sample Scaling:** Applied dummy encoding (`drop_first=True`) to expand categorical variables into \(\mathbf{X} \in \mathbb{R}^{m \times 40}\). Continuous features (`Distance_km`, `Weight_kg`, `Warehouse_Handling_Fee`, `Fuel_Surcharge`, `Freight_Cost`, `Insurance_Fee`) were standardized using mean and standard deviation computed strictly on the training set before transforming \(\mathbf{X}_{\text{test}}\).
+  * **One-Hot Encoding & In-Sample Scaling:** Applied dummy encoding (`drop_first=True`) to expand categorical variables into $\mathbf{X} \in \mathbb{R}^{m \times 40}$. Continuous features (`Distance_km`, `Weight_kg`, `Warehouse_Handling_Fee`, `Fuel_Surcharge`, `Freight_Cost`, `Insurance_Fee`) were standardized using mean and standard deviation computed strictly on the training set before transforming $\mathbf{X}_{\text{test}}$.
 
 ---
 
 ## 🎯 Motive 1: EDD Prediction (Regression)
 
 ### Optimization Formulation
-* **Armijo Backtracking Line Search:** Dynamically contracts step size η (β = 0.5, c = 0.005) over `3,500` epochs to guarantee monotonic Mean Squared Error reduction:
-  \[f(\mathbf{w} - \eta \nabla f(\mathbf{w})) \le f(\mathbf{w}) - c \, \eta \, \Vert{}\nabla f(\mathbf{w})\Vert{}_2^2\]
-* **Proximal Gradient Descent (Lasso L₁):** Applies element-wise soft-thresholding \(\mathcal{S}_{\eta \alpha}(v_j) = \operatorname{sign}(v_j)\max(0, \vert{}v_j\vert{} - \eta\alpha)\) over `1,500` epochs. An 80/20 inner validation sweep across \(\alpha \in [10^{-5}, 10^{1}]\) selected α = 0.031623 (`Validation RMSE = 8.7486` hours).
+* **Armijo Backtracking Line Search:** Dynamically contracts step size $\eta$ ($\beta = 0.5$, $c = 0.005$) over `3,500` epochs to guarantee monotonic Mean Squared Error reduction.
+
+  $$
+  f(\mathbf{w} - \eta \nabla f(\mathbf{w}))
+  \leq
+  f(\mathbf{w}) - c\,\eta\,\lVert\nabla f(\mathbf{w})\rVert_2^2
+  $$
+
+* **Proximal Gradient Descent (Lasso L₁):** Applies element-wise soft-thresholding
+
+  $$
+  \mathcal{S}_{\eta\alpha}(v_j)
+  =
+  \operatorname{sign}(v_j)\max\left(0,\lvert v_j\rvert-\eta\alpha\right)
+  $$
+
+  over `1,500` epochs. An 80/20 inner validation sweep across $\alpha \in [10^{-5}, 10^{1}]$ selected $\alpha = 0.031623$ (`Validation RMSE = 8.7486` hours).
 
 ### EDD Benchmark Results (`Transit_Time_Hours`)
 
@@ -52,8 +66,18 @@ This repository implements an end-to-end Machine Learning pipeline from scratch 
 ## 🚨 Motive 2: SLA Violation Prediction (Classification)
 
 ### Optimization Formulation
-* **Binary Logistic Regression:** Models SLA delay probability \(\hat{p} = \sigma(\mathbf{w}^T\mathbf{x} + b)\) via Batch Gradient Descent (`learning_rate = 0.1`, `epochs = 1000`) minimizing Binary Cross-Entropy loss:
-  \[\mathcal{L}_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^{m} \Big[ y^{(i)} \log(\hat{p}^{(i)}) + (1 - y^{(i)}) \log(1 - \hat{p}^{(i)}) \Big]\]
+* **Binary Logistic Regression:** Models SLA delay probability $\hat{p} = \sigma(\mathbf{w}^T\mathbf{x} + b)$ via Batch Gradient Descent (`learning_rate = 0.1`, `epochs = 1000`), minimizing Binary Cross-Entropy loss:
+
+  $$
+  \mathcal{L}_{\text{BCE}}
+  =
+  -\frac{1}{m}\sum_{i=1}^{m}
+  \left[
+    y^{(i)}\log(\hat{p}^{(i)})
+    +
+    (1-y^{(i)})\log(1-\hat{p}^{(i)})
+  \right]
+  $$
 
 ### SLA Benchmark Results (`Is_Delayed_SLA` — Matched Operating Thresholds)
 Because only **3.44%** (`1,451 / 42,170`) of holdout shipments violate SLA, a majority-class dummy classifier achieves **96.56%** accuracy with `0.0000` recall. All unweighted models are therefore evaluated primarily on **Precision**, **Recall**, and **F1-Score** for Class 1 (`Is_Delayed_SLA = 1`) across identical thresholds:
@@ -68,7 +92,7 @@ Because only **3.44%** (`1,451 / 42,170`) of holdout shipments violate SLA, a ma
 | **Custom Logistic Regression (Scratch)** | `0.50` | 0.7426 | 0.2764 | 0.4028 | 97.18% |
 
 * **Selected SLA Model:** **Custom Logistic Regression (τ = 0.30)** delivers the highest precision (**`0.6517`**) and overall accuracy (**`97.38%`**) at the τ = 0.30 operating point, boosting minority delay recall from `27.64%` (at τ = 0.50) to **`51.07%`** while minimizing false delay alerts.
-* **Holdout Confusion Matrix (Custom Logistic Regression, τ = 0.30, \(m_{\text{test}} = 42{,}170\)):**
+* **Holdout Confusion Matrix (Custom Logistic Regression, τ = 0.30, $m_{\text{test}} = 42{,}170$):**
   * **True Positives (TP):** `741` | **False Positives (FP):** `396`
   * **True Negatives (TN):** `40,323` | **False Negatives (FN):** `710`
 
@@ -76,13 +100,13 @@ Because only **3.44%** (`1,451 / 42,170`) of holdout shipments violate SLA, a ma
 
 ## ⚙️ Learned Parameters of Chosen Models
 
-* **EDD Custom Proximal Lasso Intercept (\(b_{\text{EDD}}\)):** `85.136029` (10 non-zero weights out of 40 features)
+* **EDD Custom Proximal Lasso Intercept ($b_{\text{EDD}}$):** `85.136029` (10 non-zero weights out of 40 features)
   * `Distance_km`: `+39.003655` | `Festival_Peak_Normal_Period`: `-39.022109`
   * `Freight_Cost`: `-10.599448` | `Insurance_Fee`: `-10.599162`
   * `Fuel_Surcharge`: `+1.253778` | `Shipment_Mode_Surface`: `+0.283790`
   * `Warehouse_Handling_Fee`: `+0.144645` | `Logistics_Zone_Zone B`: `+0.037001`
   * `Weight_kg`: `+0.026705` | `Logistics_Zone_Zone C`: `-0.008649`
-* **SLA Custom Logistic Intercept (\(b_{\text{SLA}}\)):** `-1.537808` (top magnitude drivers: `Festival_Peak_Normal_Period = -2.223302`, `Shipment_Mode_Surface = -1.357282`, `Freight_Cost = +0.378138`, `Insurance_Fee = +0.378136`, `Distance_km = +0.283658`)
+* **SLA Custom Logistic Intercept ($b_{\text{SLA}}$):** `-1.537808` (top magnitude drivers: `Festival_Peak_Normal_Period = -2.223302`, `Shipment_Mode_Surface = -1.357282`, `Freight_Cost = +0.378138`, `Insurance_Fee = +0.378136`, `Distance_km = +0.283658`)
 
 ---
 
