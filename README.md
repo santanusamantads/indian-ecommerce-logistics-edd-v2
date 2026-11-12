@@ -16,7 +16,7 @@ This repository implements an end-to-end Machine Learning pipeline from scratch 
 
 ## 📊 Dataset & Leakage-Free Preprocessing
 
-* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (v2)](https://kaggle.com) (`210,850` rows × `21` attributes)
+* **Dataset:** [Indian Multi-Agency E-Commerce Logistics & EDD Dataset (v2)](https://www.kaggle.com/datasets/shyamsantanu01122004/indian-multi-agency-e-commerce-logistics-and-edd?select=india_multi_agency_edd_dataset_v2.csv) (`210,850` rows × `21` attributes)
 * **Logistics Providers:** Blue Dart, Delhivery, Ekart, XpressBees, Ecom Express, and Shadowfax
 * **Routing & Modes:** Logistics Zones A–E across pan-India cities (`Surface` and `Air` shipment modes)
 * **Data Partitioning:** Sequential 80/20 holdout split (`168,680` training rows / `42,170` holdout test rows)
